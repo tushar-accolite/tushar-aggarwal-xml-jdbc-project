@@ -1,0 +1,161 @@
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerConfigurationException;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.xml.sax.SAXException;
+
+public class SqlClass {
+	@SuppressWarnings("resource")
+    public static 	Connection con=null;
+    public static Statement stmt=null;
+    public static DocumentBuilderFactory documentFactory=null;
+    public static DocumentBuilder documentBuilder=null;
+    public static TransformerFactory transformerFactory=null;
+    public static Transformer transformer =null;
+    
+    //Static Block For Those Objects Which Needs To be Instantiate Only Once As The Program Execution Start
+    static{
+    	try {
+    			Class.forName("com.mysql.jdbc.Driver");
+				con=DriverManager.getConnection("jdbc:mysql://sql12.freemysqlhosting.net/sql12274592","sql12274592","BYKrdA3mDn");
+			    stmt=con.createStatement();
+			    documentFactory= DocumentBuilderFactory.newInstance();
+			    documentBuilder = documentFactory.newDocumentBuilder();
+	            transformerFactory = TransformerFactory.newInstance();
+	            transformer = transformerFactory.newTransformer();
+		    }
+    	catch (ClassNotFoundException e) {
+				e.printStackTrace();
+			}  
+		catch (SQLException e) {
+				e.printStackTrace();
+			} 
+		catch (ParserConfigurationException e1) {
+				e1.printStackTrace();
+			} 
+    	catch (TransformerConfigurationException e) {
+				e.printStackTrace();
+			}
+		}
+    
+    //Driver Main Function
+    public static void main(String[] args)
+    {
+    	String fileName1 ="beforeInsert.xml";
+    	String fileName2 ="afterInsert.xml";
+    	String tableName ="emp";
+    	//Before Update XML Create
+    	
+    	//Insert Into Table
+    	try {
+    		createXML(fileName1, tableName);
+            stmt.executeUpdate("insert into emp (empno,ename,job,mgr,hiredate,sal,comm,deptno) values(23,'Tushar','Developer',456,date '2012-08-12',6557,875,20)");
+			createXML(fileName2, tableName);
+	     	compareXML(fileName1, fileName2);
+	     	con.close();
+    		stmt.close();
+    	} 
+    	catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+        catch (SAXException | IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+    }
+    
+    //Get  MetaData Of The Table in  a List
+    public static ArrayList<String> getMetaData(String tableName){
+    	ArrayList<String> list=null;
+    	try{
+        	ResultSet rs= stmt.executeQuery("show fields from "+tableName);
+    	  list = new ArrayList<>();
+        while(rs.next()) {
+        	list.add(rs.getString(1));
+        }
+        rs.close();
+        }
+        catch(Exception e) {
+        	e.printStackTrace();
+        }
+        return list;
+    }
+    
+	//Create a XML  fileName.xml  With all Entities in table tableName 
+    public static void createXML(String fileName,String tableName) {
+	    Document document = documentBuilder.newDocument();
+	    Element root = document.createElement("accolite");
+	    document.appendChild(root);
+		ArrayList<String> metaData = getMetaData(tableName);
+           try {
+        	   ResultSet rs=stmt.executeQuery("select * from "+tableName);
+            while(rs.next()) {
+            	Element employee = document.createElement("employee");
+                root.appendChild(employee);
+            	for(int i = 1 ; i <= metaData.size(); i++){
+            		Element temp = document.createElement(metaData.get(i-1));
+            		temp.appendChild(document.createTextNode(""+rs.getString(i)));
+            		employee.appendChild(temp);
+            		}
+            	 }
+ 			transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
+ 			transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+ 			DOMSource domSource = new DOMSource(document);
+ 			StreamResult streamResult = new StreamResult(new File(fileName));
+ 			transformer.transform(domSource, streamResult);
+           }
+           catch(SQLException e) {e.printStackTrace();}
+           catch(TransformerException e) {e.printStackTrace();}
+	}
+    
+    //Compare Two XMLs specified by FilePath1 and FilePath2
+    public static void compareXML(String filePath1, String filePath2) throws SAXException, IOException {
+
+    	// It is The Comparison Of Two XMLs Using Buffered Reader and File Reading
+    			
+    		File file1 = new File(filePath1);
+    		File file2=new File(filePath2);
+    		BufferedReader firstXML = new BufferedReader(new FileReader(file1));
+    		BufferedReader secondXML = new BufferedReader(new FileReader(file2));
+    		String line =  firstXML.readLine();
+    		String line1 = secondXML.readLine();
+    	    System.out.println("This Entry is Added New To The DataBase");
+    		while(line!=null&&line1!=null)
+    		{
+    			if(line.equals(line1))
+    			{
+    				line=firstXML.readLine();
+    				line1=secondXML.readLine();
+    			}
+    			else
+    			{
+    				System.out.println(line1);
+    				line1=secondXML.readLine();
+    			}
+    		}
+    			
+    		}
+    		
+    //End Of Program
+}
